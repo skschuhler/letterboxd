@@ -6,6 +6,9 @@ from typing import Optional, List, Dict
 from constants import HEADERS
 import aiohttp
 import asyncio
+import random
+from tqdm import tqdm
+import os
 
 # --- Username Scraping ---
 def fetch_usernames_from_page(url: str) -> List[str]:
@@ -193,7 +196,7 @@ async def extract_user_films(username: str) -> List[Dict[str, Optional[str]]]:
 async def save_data_to_csv(user_data, username: str):
     """Save the user's data to a CSV file."""
     df = pd.DataFrame(user_data)
-    filename = f"C:/Users/sarah/Documents/GitHub/letterboxd-scraper/data2/{username}_film_data.csv"
+    filename = "data/{username}_film_data.csv"
     df.to_csv(filename, index=False)
     print(f"Data for {username} saved to {filename}")
 
@@ -233,3 +236,53 @@ async def scrape_multiple_users_concurrently(usernames: List[str]):
 
         # Sleep between batches to avoid hitting rate limits
         await async_sleep(3)  # Adjust the sleep time if necessary
+
+def combine_csv_files(folder_path: str, output_file: str):
+    # Get a list of all CSV files in the folder
+    all_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
+
+    # Initialize an empty list to hold all DataFrames
+    df_list = []
+    
+    # Initialize an empty list to track skipped (empty) files
+    skipped_files = []
+
+    # Loop through each CSV file and read it into a DataFrame
+    for file in tqdm(all_files, desc="Processing CSV files", unit="file"):
+        file_path = os.path.join(folder_path, file)
+        try:
+            df = pd.read_csv(file_path)
+            
+            # Check if the DataFrame is empty
+            if df.empty:
+                skipped_files.append(file)  # Add the empty file to skipped_files list
+            else:
+                # Extract the username from the filename (e.g., "username_film_data.csv")
+                username = file.replace('_film_data.csv', '')
+
+                # Add the "user" column with the username value
+                df.insert(0, "user", username)  # Insert at the first position
+
+                # Append the DataFrame to the list
+                df_list.append(df)
+
+        except pd.errors.EmptyDataError:
+            # Handle the case where the file is empty
+            print(f"Skipping empty file: {file}")
+            skipped_files.append(file)  # Add the empty file to skipped_files list
+
+    # Concatenate all non-empty DataFrames into one
+    if df_list:
+        combined_df = pd.concat(df_list, ignore_index=True)
+
+        # Save the combined DataFrame to a new CSV file
+        combined_df.to_csv(output_file, index=False)
+        print(f"Combined CSV saved to {output_file}")
+    else:
+        print("No data to combine. All files were empty.")
+
+    # Print the skipped files
+    if skipped_files:
+        print("Skipped the following empty files:")
+        for skipped_file in skipped_files:
+            print(skipped_file)

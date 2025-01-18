@@ -12,3 +12,8 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+#combine into one csv
+folder_path = 'data'  # Folder containing your CSV files
+output_file = 'combined_data.csv'  # Name for the output combined CSV
+combine_csv_files(folder_path, output_file)
